@@ -19,4 +19,4 @@ debug:${EXE}
 	LD_PRELOAD=${MGD}/libinterceptor.so ./${EXE}
 
 clean:
-rm -rf ${EXE} ${EXE}.o 
+	rm -rf ${EXE} ${EXE}.o	
