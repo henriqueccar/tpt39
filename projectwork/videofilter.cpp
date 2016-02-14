@@ -66,10 +66,6 @@ void checkError(int status, const char *msg) {
 
 
 
-
-
-
-
 int main(int, char**)
 {
 char char_buffer[STRING_BUFFER_LEN];
@@ -100,8 +96,8 @@ cl_kernel kernel;
                   (int) camera.get(CV_CAP_PROP_FRAME_HEIGHT));
 	//Size S =Size(1280,720);
 	cout << "SIZE:" << S << endl;
-	int w = (int) camera.get(CV_CAP_PROP_FRAME_WIDTH);
-	int h = (int) camera.get(CV_CAP_PROP_FRAME_HEIGHT);
+	size_t  w = (size_t) camera.get(CV_CAP_PROP_FRAME_WIDTH);
+	size_t  h = (size_t) camera.get(CV_CAP_PROP_FRAME_HEIGHT);
 	
 
     VideoWriter outputVideo;                                        // Open the output
@@ -120,55 +116,10 @@ cl_kernel kernel;
     #ifdef SHOW
     namedWindow(windowName); // Resizable window, might not work on Windows.
     #endif
-    while (true) {
-        Mat cameraFrame,displayframe;
-		count=count+1;
-		if(count > 299) break;
-        camera >> cameraFrame;
-		time (&start);
-        Mat filterframe = Mat(cameraFrame.size(), CV_8UC3);
-        Mat grayframe,edge_x,edge_y,edge;
-	Mat floatFrame;
-//    	float *floatFrame=(float *) malloc(sizeof(float)*w*h);
-	cvtColor(cameraFrame, grayframe, CV_BGR2GRAY);
-	grayframe.convertTo(floatFrame, CV_32FC1);
-//	int kernelSise=3;// 3x3 filter
-	Mat ugauss =  getGaussianKernel(3,1,CV_32F);
-	Mat gauss;
-//	float *gaus=(float *) malloc(sizeof(float)*9);
-	ugauss.convertTo(gauss,CV_32F);
 
-//converting Mat to one line array source
-//  https://stackoverflow.com/questions/26681713/convert-mat-to-array-vector-in-opencv/26685567
+float gaussarray[] = {1/16,1/8,1/16,1/8,1/4,1/8,1/16,1/8,1/16};
 float *array = (float *)malloc( 3*sizeof(float)*h*w );
-cv::MatConstIterator_<cv::Vec3f> it = floatFrame.begin<cv::Vec3f>();
-for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
-    for ( unsigned j = 0; j < 3; j++ ) {
-        *(array + i ) = (*it)[j];
-        i++;
-    }
-}
-
-float *gaussarray = (float *)malloc( 3*3*sizeof(float));
-cv::MatConstIterator_<cv::Vec3f> it2 = gauss.begin<cv::Vec3f>();
-for (unsigned i = 0; it2 != gauss.end<cv::Vec3f>(); it++ ) {
-    for ( unsigned j = 0; j < 3; j++ ) {
-        *(gaussarray + i ) = (*it2)[j];
-        i++;
-    }
-}
-
-
-//printf("%f\n", *array);
-
 //creating Sob matrices
-
-//float Sobx = [(-1, 0, 1,
-//          -2, 0, 2,
-//          -1, 0, 1)];
-//float Soby = [(-1, -2, -1,
-//          0, 0, 0,
-//          1, 2, 1)];
 
 //float *input_a=(float *) malloc(sizeof(float)*n*n);
 //float *input_b=(float *) malloc(sizeof(float)*N*N);
@@ -177,7 +128,7 @@ float *output=(float *) malloc(sizeof(float)*h*w);
 //int *input_N=(int *) malloc(sizeof(int));
 //float  ref_output=0.0;
 cl_mem input_a_buf; // num_devices elements
-//cl_mem input_b_buf; // num_devices elements
+cl_mem input_Kernel_buf; // num_devices elements
 //cl_mem input_N_buf;// num_devices elements
 cl_mem output_buf; // num_devices elements
 int status;
@@ -202,23 +153,140 @@ clGetPlatformIDs(1, &platform, NULL);
      queue = clCreateCommandQueue(context, device, 0, NULL);
 
 
-     unsigned char **opencl_program=read_file("filter.cl");
+     unsigned char **opencl_program=read_file("convolution.cl");
      program = clCreateProgramWithSource(context, 1, (const char **)opencl_program, NULL, NULL);
      if (program == NULL)
-	{
+        {
          printf("Program creation failed\n");
          return 1;
-	}	
+        }       
      int success=clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-	if(success!=CL_SUCCESS) print_clbuild_errors(program,device);
-	kernel = clCreateKernel(program, "filter", NULL);
+        if(success!=CL_SUCCESS) print_clbuild_errors(program,device);
+        kernel = clCreateKernel(program, "convolution", NULL);
 
 
+
+
+
+
+
+
+
+    while (true) {
+        Mat cameraFrame,displayframe;
+		count=count+1;
+		if(count > 299) break;
+        camera >> cameraFrame;
+		time (&start);
+        Mat filterframe = Mat(cameraFrame.size(), CV_8UC3);
+        Mat grayframe,edge_x,edge_y,edge;
+	Mat floatFrame;
+//    	float *floatFrame=(float *) malloc(sizeof(float)*w*h);
+	cvtColor(cameraFrame, grayframe, CV_BGR2GRAY);
+	grayframe.convertTo(floatFrame, CV_32FC1);
+//	int kernelSise=3;// 3x3 filter
+	Mat ugauss =  getGaussianKernel(3,1,CV_32F);
+	Mat gauss;
+//	float *gaus=(float *) malloc(sizeof(float)*9);
+	ugauss.convertTo(gauss,CV_32F);
+
+//converting Mat to one line array source
+//  https://stackoverflow.com/questions/26681713/convert-mat-to-array-vector-in-opencv/26685567
+cv::MatConstIterator_<cv::Vec3f> it = floatFrame.begin<cv::Vec3f>();
+for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
+    for ( unsigned j = 0; j < 3; j++ ) {
+        *(array + i ) = (*it)[j];
+        i++;
+    }
+}
+//printf("%f\n",*array);
+
+
+
+
+//int countermat=0;
+//int repetitionvert = h/3;
+//int repetitionhori = w/3;
+//for (unsigned j=0; j<h;j++){
+//	for(unsigned i=0;i<w && i<(3*(countermat+1));i++)
+//		for(unsigned k=0; k<3; k++
+//			C[c*3 = A[j+
+	
+
+//float *gaussarray = (float *)malloc( 3*3*sizeof(float));
+//cv::MatConstIterator_<cv::Vec3f> it2 = gauss.begin<cv::Vec3f>();
+//for (unsigned i = 0; it2 != gauss.end<cv::Vec3f>(); it++ ) {
+//    for ( unsigned j = 0; j < 3; j++ ) {
+//        *(gaussarray + i ) = (*it2)[j];
+//        i++;
+//    }
+//}
+
+
+//printf("%f\n", *array);
 
  // Input buffers.
 	input_a_buf = clCreateBuffer(context,CL_MEM_USE_HOST_PTR|CL_MEM_READ_ONLY,
 	 h*w* sizeof(float), array, &status);
 	checkError(status, "Failed to create buffer for input A");
+
+        input_Kernel_buf = clCreateBuffer(context,CL_MEM_USE_HOST_PTR|CL_MEM_READ_ONLY,
+         9*sizeof(float), gaussarray, &status);
+        checkError(status, "Failed to create buffer for input A");
+
+
+// Output buffer.
+    output_buf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR|CL_MEM_WRITE_ONLY,
+       h*w* sizeof(float), output, &status);
+    checkError(status, "Failed to create buffer for output");
+
+
+    // Transfer inputs to each device. Each of the host buffers supplied to
+    // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
+    // for the host-to-device transfer.
+    cl_event write_event[2];
+	cl_event kernel_event,finish_event;
+    status = clEnqueueWriteBuffer(queue, input_a_buf, CL_TRUE,
+        0, w*h* sizeof(float), *array, 0, NULL, &write_event[0]);
+    checkError(status, "Failed to transfer input A");
+
+    status = clEnqueueWriteBuffer(queue, input_Kernel_buf, CL_TRUE,
+        0, 9* sizeof(float), *gaussarray, 0, NULL, &write_event[1]);
+    checkError(status, "Failed to transfer input B");
+
+//    status = clEnqueueWriteBuffer(queue, input_N_buf, CL_TRUE,
+//        0, sizeof(int), &input_N, 0, NULL, &write_event[2]);
+//    checkError(status, "Failed to transfer input B");
+
+
+    // Set kernel arguments.
+    unsigned argi = 0;
+
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_a_buf);
+    checkError(status, "Failed to set argument 1");
+
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_Kernel_buf);
+    checkError(status, "Failed to set argument 2");
+
+//    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_N_buf);
+//    checkError(status, "Failed to set argument 3");
+
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf);
+    checkError(status, "Failed to set argument 4");
+//    size_t ind_w ={w};
+//    size_t ind_h = {h};
+    const size_t global_work_size[] = {w,h};
+//    const size_t local_work_size = N/256;
+
+
+    status = clEnqueueNDRangeKernel(queue, kernel, 2, NULL,
+        global_work_size, NULL, 2,  write_event, &kernel_event);
+    checkError(status, "Failed to launch kernel");
+    // Read the result. This the final operation.
+    status = clEnqueueReadBuffer(queue, output_buf, CL_TRUE,
+        0, w*h*9* sizeof(float), output, 1, &kernel_event, &finish_event);
+    checkError(status, "Failed to READ kernel");
+
 
 
 
