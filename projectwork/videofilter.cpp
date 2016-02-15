@@ -119,18 +119,32 @@ cl_kernel kernel;
 
 float gaussarray[] = {1/16,1/8,1/16,1/8,1/4,1/8,1/16,1/8,1/16};
 float *array = (float *)malloc( 3*sizeof(float)*h*w );
+float Sobx[] = {-1, 0, 1,
+         -2, 0, 2,
+          -1, 0, 1};
+float Soby [] = {-1, -2, -1,
+          0, 0, 0,
+          1, 2, 1};
 //creating Sob matrices
 
 //float *input_a=(float *) malloc(sizeof(float)*n*n);
 //float *input_b=(float *) malloc(sizeof(float)*N*N);
-float *output=(float *) malloc(sizeof(float)*h*w*9);
+float *outputa=(float *) malloc(sizeof(float)*h*w);
+float *outputb=(float *) malloc(sizeof(float)*h*w);
+float *outputc=(float *) malloc(sizeof(float)*h*w);
 //float *ref_output=(float *) malloc(sizeof(float)*N*N);
 //int *input_N=(int *) malloc(sizeof(int));
 //float  ref_output=0.0;
 cl_mem input_a_buf; // num_devices elements
 cl_mem input_Kernel_buf; // num_devices elements
+cl_mem input_Sobx_buf; // num_devices elements
+cl_mem input_Soby_buf; // num_devices elements
 //cl_mem input_N_buf;// num_devices elements
-cl_mem output_buf; // num_devices elements
+cl_mem outputa_buf; // num_devices elements
+cl_mem outputb_buf; // num_devices elements
+cl_mem outputc_buf; // num_devices elements
+
+
 int status;
 
 
@@ -199,18 +213,6 @@ for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
         i++;
     }
 }
-//printf("%f\n",*array);
-
-
-
-
-//int countermat=0;
-//int repetitionvert = h/3;
-//int repetitionhori = w/3;
-//for (unsigned j=0; j<h;j++){
-//	for(unsigned i=0;i<w && i<(3*(countermat+1));i++)
-//		for(unsigned k=0; k<3; k++
-//			C[c*3 = A[j+
 	
 
 //float *gaussarray = (float *)malloc( 3*3*sizeof(float));
@@ -232,13 +234,33 @@ for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
 
         input_Kernel_buf = clCreateBuffer(context,CL_MEM_USE_HOST_PTR|CL_MEM_READ_ONLY,
          9*sizeof(float), gaussarray, &status);
-        checkError(status, "Failed to create buffer for input A");
+        checkError(status, "Failed to create buffer for input B");
+
+        input_Sobx_buf = clCreateBuffer(context,CL_MEM_USE_HOST_PTR|CL_MEM_READ_ONLY,
+         9*sizeof(float), Sobx, &status);
+        checkError(status, "Failed to create buffer for input C");
+
+        input_Soby_buf = clCreateBuffer(context,CL_MEM_USE_HOST_PTR|CL_MEM_READ_ONLY,
+         9*sizeof(float), Soby, &status);
+        checkError(status, "Failed to create buffer for input D");
+
+
+
 
 
 // Output buffer.
-    output_buf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR|CL_MEM_WRITE_ONLY,
-       h*w*9* sizeof(float), output, &status);
-    checkError(status, "Failed to create buffer for output");
+    outputa_buf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR|CL_MEM_READ_WRITE,
+       h*w* sizeof(float), outputa, &status);
+    checkError(status, "Failed to create buffer for outputa");
+
+    outputb_buf = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
+       h*w* sizeof(float), outputb, &status);
+    checkError(status, "Failed to create buffer for outputb");
+
+    outputc_buf = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
+       h*w* sizeof(float), outputc, &status);
+    checkError(status, "Failed to create buffer for outputc");
+
 
 
     // Transfer inputs to each device. Each of the host buffers supplied to
@@ -247,12 +269,21 @@ for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
     cl_event write_event[2];
 	cl_event kernel_event,finish_event;
     status = clEnqueueWriteBuffer(queue, input_a_buf, CL_TRUE,
-        0, w*h* sizeof(float), array, 0, NULL, &write_event[0]);
+        0, w*h*9* sizeof(float), array, 0, NULL, &write_event[0]);
     checkError(status, "Failed to transfer input A");
 
     status = clEnqueueWriteBuffer(queue, input_Kernel_buf, CL_TRUE,
         0, 9* sizeof(float), gaussarray, 0, NULL, &write_event[1]);
     checkError(status, "Failed to transfer input B");
+
+    status = clEnqueueWriteBuffer(queue, input_Sobx_buf, CL_TRUE,
+        0, 9* sizeof(float),Sobx, 0, NULL, &write_event[1]);
+    checkError(status, "Failed to transfer input C");
+
+    status = clEnqueueWriteBuffer(queue, input_Soby_buf, CL_TRUE,
+        0, 9* sizeof(float), Soby, 0, NULL, &write_event[1]);
+    checkError(status, "Failed to transfer input D");
+
 
 //    status = clEnqueueWriteBuffer(queue, input_N_buf, CL_TRUE,
 //        0, sizeof(int), &input_N, 0, NULL, &write_event[2]);
@@ -271,7 +302,7 @@ for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
 //    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_N_buf);
 //    checkError(status, "Failed to set argument 3");
 
-    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &output_buf);
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &outputa_buf);
     checkError(status, "Failed to set argument 4");
 //    size_t ind_w ={w};
 //    size_t ind_h = {h};
@@ -283,14 +314,81 @@ for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
         global_work_size, NULL, 2,  write_event, &kernel_event);
     checkError(status, "Failed to launch kernel");
     // Read the result. This the final operation.
-    status = clEnqueueReadBuffer(queue, output_buf, CL_TRUE,
-        0, w*h*9* sizeof(float), output, 1, &kernel_event, &finish_event);
+    status = clEnqueueReadBuffer(queue, outputa_buf, CL_TRUE,
+        0, w*h*sizeof(float), outputa, 1, &kernel_event, &finish_event);
     checkError(status, "Failed to READ kernel");
     cout << status << w << h  <<endl;
 
 
+   // Set kernel arguments Sobx.
+    argi = 0;
 
-cv::Mat newframe = cv::Mat(w, h, CV_32F, &output);
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &outputa_buf);
+    checkError(status, "Failed to set argument b1");
+
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_Kernel_buf);
+    checkError(status, "Failed to set argument b2");
+
+//    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_N_buf);
+//    checkError(status, "Failed to set argument 3");
+
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &outputb_buf);
+    checkError(status, "Failed to set argument b4");
+//    size_t ind_w ={w};
+//    size_t ind_h = {h};
+//    const size_t global_work_size[] = {w,h};
+
+
+    status = clEnqueueNDRangeKernel(queue, kernel, 2, NULL,
+        global_work_size, NULL, 2,  write_event, &kernel_event);
+    checkError(status, "Failed to launch kernel");
+    // Read the result. This the final operation.
+    status = clEnqueueReadBuffer(queue, outputb_buf, CL_TRUE,
+        0, w*h*sizeof(float), outputb, 1, &kernel_event, &finish_event);
+    checkError(status, "Failed to READ kernel");
+    cout << status << w << h  <<endl;
+
+   // Set kernel arguments Soby.
+   argi = 0;
+
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &outputa_buf);
+    checkError(status, "Failed to set argument c1");
+
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_Soby_buf);
+    checkError(status, "Failed to set argument c2");
+
+//    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &input_N_buf);
+//    checkError(status, "Failed to set argument 3");
+
+    status = clSetKernelArg(kernel, argi++, sizeof(cl_mem), &outputc_buf);
+    checkError(status, "Failed to set argument c4");
+//    size_t ind_w ={w};
+//    size_t ind_h = {h};
+//    const size_t global_work_size[] = {w,h};
+
+
+
+    status = clEnqueueNDRangeKernel(queue, kernel, 2, NULL,
+        global_work_size, NULL, 2,  write_event, &kernel_event);
+    checkError(status, "Failed to launch kernel");
+    // Read the result. This the final operation.
+    status = clEnqueueReadBuffer(queue, outputc_buf, CL_TRUE,
+        0, w*h* sizeof(float), outputc, 1, &kernel_event, &finish_event);
+    checkError(status, "Failed to READ kernel");
+    cout << status << w << h  <<endl;
+float *outc=(float *) malloc(sizeof(float)*h*w);
+for (unsigned i=0; i<w*h; i++){
+	out[i]= sqrt(pow(outputb[i],2)+pow(outputc[i],2));
+}
+
+
+
+
+
+
+
+
+cv::Mat newframe = cv::Mat(w, h, CV_32F, &out);
 
 
 //    	GaussianBlur(grayframe, grayframe, Size(3,3),0,0);

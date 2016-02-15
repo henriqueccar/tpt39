@@ -27,4 +27,5 @@ __kernel void convolution(__global const int *k_array,
 
     // Set the output equal to the sum.
     output[get_global_id(0)] = ((int)sum);
+// source https://www.evl.uic.edu/kreda/gpu/image-convolution/
 }
