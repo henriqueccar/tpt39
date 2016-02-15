@@ -123,7 +123,7 @@ float *array = (float *)malloc( 3*sizeof(float)*h*w );
 
 //float *input_a=(float *) malloc(sizeof(float)*n*n);
 //float *input_b=(float *) malloc(sizeof(float)*N*N);
-float *output=(float *) malloc(sizeof(float)*h*w);
+float *output=(float *) malloc(sizeof(float)*h*w*9);
 //float *ref_output=(float *) malloc(sizeof(float)*N*N);
 //int *input_N=(int *) malloc(sizeof(int));
 //float  ref_output=0.0;
@@ -175,7 +175,7 @@ clGetPlatformIDs(1, &platform, NULL);
     while (true) {
         Mat cameraFrame,displayframe;
 		count=count+1;
-		if(count > 299) break;
+		if(count > 2) break;
         camera >> cameraFrame;
 		time (&start);
         Mat filterframe = Mat(cameraFrame.size(), CV_8UC3);
@@ -237,7 +237,7 @@ for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
 
 // Output buffer.
     output_buf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR|CL_MEM_WRITE_ONLY,
-       h*w* sizeof(float), output, &status);
+       h*w*9* sizeof(float), output, &status);
     checkError(status, "Failed to create buffer for output");
 
 
@@ -247,11 +247,11 @@ for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
     cl_event write_event[2];
 	cl_event kernel_event,finish_event;
     status = clEnqueueWriteBuffer(queue, input_a_buf, CL_TRUE,
-        0, w*h* sizeof(float), *array, 0, NULL, &write_event[0]);
+        0, w*h* sizeof(float), array, 0, NULL, &write_event[0]);
     checkError(status, "Failed to transfer input A");
 
     status = clEnqueueWriteBuffer(queue, input_Kernel_buf, CL_TRUE,
-        0, 9* sizeof(float), *gaussarray, 0, NULL, &write_event[1]);
+        0, 9* sizeof(float), gaussarray, 0, NULL, &write_event[1]);
     checkError(status, "Failed to transfer input B");
 
 //    status = clEnqueueWriteBuffer(queue, input_N_buf, CL_TRUE,
@@ -286,25 +286,25 @@ for (unsigned i = 0; it != floatFrame.end<cv::Vec3f>(); it++ ) {
     status = clEnqueueReadBuffer(queue, output_buf, CL_TRUE,
         0, w*h*9* sizeof(float), output, 1, &kernel_event, &finish_event);
     checkError(status, "Failed to READ kernel");
+    cout << status << w << h  <<endl;
 
 
 
+cv::Mat newframe = cv::Mat(w, h, CV_32F, &output);
 
 
-
-
-    	GaussianBlur(grayframe, grayframe, Size(3,3),0,0);
-    	GaussianBlur(grayframe, grayframe, Size(3,3),0,0);
-    	GaussianBlur(grayframe, grayframe, Size(3,3),0,0);
-		Scharr(grayframe, edge_x, CV_8U, 0, 1, 1, 0, BORDER_DEFAULT );
-		Scharr(grayframe, edge_y, CV_8U, 1, 0, 1, 0, BORDER_DEFAULT );
-		addWeighted( edge_x, 0.5, edge_y, 0.5, 0, edge );
-	    threshold(edge, edge, 80, 255, THRESH_BINARY_INV);
+//    	GaussianBlur(grayframe, grayframe, Size(3,3),0,0);
+//    	GaussianBlur(grayframe, grayframe, Size(3,3),0,0);
+//    	GaussianBlur(grayframe, grayframe, Size(3,3),0,0);
+//		Scharr(grayframe, edge_x, CV_8U, 0, 1, 1, 0, BORDER_DEFAULT );
+//		Scharr(grayframe, edge_y, CV_8U, 1, 0, 1, 0, BORDER_DEFAULT );
+//		addWeighted( edge_x, 0.5, edge_y, 0.5, 0, edge );
+//	    threshold(edge, edge, 80, 255, THRESH_BINARY_INV);
 		time (&end);
-        cvtColor(edge, displayframe, CV_GRAY2BGR);
+//        cvtColor(edge, displayframe, CV_GRAY2BGR);
 	// Clear the output image to black, so that the cartoon line drawings will be black (ie: not drawn).
-    	memset((char*)displayframe.data, 0, displayframe.step * displayframe.rows);
-		grayframe.copyTo(displayframe,edge);
+    	memset((float*)displayframe.data, 0, displayframe.step * displayframe.rows);
+		newframe.copyTo(displayframe,edge);
 	        cvtColor(displayframe, displayframe, CV_GRAY2BGR);
 		outputVideo << displayframe;
 	#ifdef SHOW
