@@ -1,0 +1,7 @@
+#Readme
+
+
+The vector_add code in this folder acquires the average of vector A of size N without using workgroups.
+
+Under N = 500000; the CPU elapsed time was 95382677 ns and the GPU elapsed time was 54228293080 ns. The difference on speed was -54132910403 ns (slower) and the speedup is around 568533%;
+Under N = 5000; the CPU elapsed time was 962423 ns and the GPU elapsed time was 7313507 ns. The difference on speed was -6351084 ns (slower) and the speedup is around 759%;
