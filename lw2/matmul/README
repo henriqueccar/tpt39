@@ -7,7 +7,7 @@ The tests ran used two matrices NxN. The speedup was measured for N=500 and N=50
 N=50
   CPU time = 1204050 ns
   GPU time = 3315564 ns
-N= 5000
+N= 500
   CPU time = 644685544 ns
   GPU time = 1221180967 ns
 
