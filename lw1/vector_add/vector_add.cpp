@@ -1,14 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream> // for standard I/O
+#include <chrono>
 #include <math.h>
 #include <time.h>
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
 #define STRING_BUFFER_LEN 1024
 using namespace std;
+using ms=chrono::milliseconds;
+using ns=chrono::nanoseconds;
+using get_time = chrono::steady_clock;
 
-
+//time code from  https://www.quora.com/What-is-the-easiest-way-to-calculate-the-time-elapsed-in-C++
 
 
 void print_clbuild_errors(cl_program program,cl_device_id device)
@@ -91,20 +95,18 @@ cl_mem input_b_buf; // num_devices elements
 cl_mem output_buf; // num_devices elements
 int status;
 
-	time_t start,end;
-	double diff;
-	time (&start);
+	auto start = get_time::now();
 	for(unsigned j = 0; j < N; ++j) {
 	      input_a[j] = rand_float();
 	      input_b[j] = rand_float();
 	      ref_output[j] = input_a[j] + input_b[j];
 	      //printf("ref %f\n",ref_output[j]);
 	    }
-	time (&end);
-	diff = difftime (end,start);
-  	printf ("CPU took %.2lf seconds to run.\n", diff );
+	auto end = get_time::now();
+	auto diff =end-start;
+	cout<<"CPU Elapsed time is :  "<< chrono::duration_cast<ns>(diff).count()<<" ns "<<endl;
 
-    time (&start);
+
      clGetPlatformIDs(1, &platform, NULL);
      clGetPlatformInfo(platform, CL_PLATFORM_NAME, STRING_BUFFER_LEN, char_buffer, NULL);
      printf("%-40s = %s\n", "CL_PLATFORM_NAME", char_buffer);
@@ -143,7 +145,7 @@ int status;
     checkError(status, "Failed to create buffer for output");
 
 
-
+	auto nstart = get_time::now();
     // Transfer inputs to each device. Each of the host buffers supplied to
     // clEnqueueWriteBuffer here is already aligned to ensure that DMA is used
     // for the host-to-device transfer.
@@ -177,9 +179,10 @@ int status;
     status = clEnqueueReadBuffer(queue, output_buf, CL_TRUE,
         0, N* sizeof(float), output, 1, &kernel_event, &finish_event);
 
-   time (&end);
-   diff = difftime (end,start);
-   printf ("GPU took %.8lf seconds to run.\n", diff );
+	auto nend  = get_time::now();
+	auto ndiff = nend-nstart;
+	cout<<"\n GPU Elapsed time is :  "<< chrono::duration_cast<ns>(ndiff).count()<<" ns\n "<<endl;
+	
 // Verify results.
 bool pass = true;
 
