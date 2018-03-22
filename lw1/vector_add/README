@@ -1,0 +1,7 @@
+Readme
+
+
+The vector add code adds two vectors A and B of size N
+
+Under N = 5000000; the CPU elapsed time was 1953821221 ns and the GPU elapsed time was 112344498 ns. The difference on speed was 1841476723 ns and the speedup is around 6%;
+Under N = 5000; the CPU elapsed time was 1975013 ns and the GPU elapsed time was 982673 ns. The difference on speed was 992340 ns and the speedup is around 49%;
