@@ -1,13 +1,13 @@
-README
+#README
 
 
 This is the code refering to the matrix multiplication exercise for LAB2 
 
 The tests ran used two matrices NxN. The speedup was measured for N=500 and N=500.
-N=500
-  CPU time = 
-  GPU time = 
+N=50
+  CPU time = 1204050 ns
+  GPU time = 3315564 ns
 N= 5000
-  CPU time = 
-  GPU time = 
+  CPU time = 644685544 ns
+  GPU time = 1221180967 ns
 
